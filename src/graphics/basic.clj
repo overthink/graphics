@@ -1,4 +1,4 @@
-(ns ^{:doc "A simple example app of displaying a generated image in swing"
+(ns ^{:doc "A simple app for displaying a generated image in swing."
       :author "Mark Feeney"}
   graphics.basic
   (:import (javax.swing ImageIcon JFrame JLabel JPanel)
@@ -12,7 +12,11 @@
   (doto (JFrame. "Basic graphics")
     (.setDefaultCloseOperation(JFrame/DISPOSE_ON_CLOSE))))
 
-(defn display-image 
+;; Useful in colour generating functions
+(defonce prng (java.util.Random.))
+(defn rnd [] (.nextFloat prng))
+
+(defn display-image
   "Display img on frame, replacing whatever is currently there."
   [^JFrame frame ^BufferedImage img]
   (.. frame (getContentPane) (removeAll))
@@ -21,20 +25,41 @@
     (.setVisible frame true)
     (.validate frame)))
 
+(defn make-image
+  "f is a function of x, y that returns [r g b].  All of x, y, r, g, b are
+  expected to be in the interval [0, 1].  Width and height specify the size in
+  pixels of the output image."
+  [width height f]
+  (let [img (BufferedImage. width height BufferedImage/TYPE_INT_RGB)]
+    (doseq [x (range width)
+            y (range height)]
+      (let [scaledx (/ (float x) width)
+            scaledy (/ (float y) height)
+            [r g b] (f scaledx scaledy)
+            col (Color. (float r) (float g) (float b))]
+        (.setRGB img x y (.getRGB col))))
+    img))
 
 (comment
 
-(defn make-test-image [^Color col]
-  (let [img (BufferedImage. 300 200 BufferedImage/TYPE_INT_ARGB)]
-    (doseq [x (range 300)
-            y (range 10)]
-      (.setRGB img x (+ y 30) (.getRGB col)))
-    img))
+  (defn show [f] (display-image frame (make-image 400 400 f)))
 
-(defn make-red [] (make-test-image Color/RED))
-(defn make-blue [] (make-test-image Color/BLUE))
-(display-image frame (make-red))
-(display-image frame (make-blue))
+  ;; Simple gradient
+  (defn f1 [x y] [x y 0])
+  (show f1)
+
+  ;; Random noise, tinted
+  (defn f2 [x y] [(* 0.3 (rnd)) (rnd) (rnd)])
+  (show f2)
+
+  ;; sin(x)
+  (defn sin [x y]
+    (let [sinx (Math/sin x)
+          delta (Math/abs (- sinx y))]
+      (if (< delta 0.005)
+        [0 0 0]
+        [1 1 1])))
+  (show sin)
 
 )
 
