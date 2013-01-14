@@ -2,7 +2,7 @@
       :author "Mark Feeney"}
   graphics.basic
   (:import (javax.swing ImageIcon JFrame JLabel JPanel)
-           (java.awt Color)
+           (java.awt Color RenderingHints)
            (java.awt.image BufferedImage)))
 
 (set! *warn-on-reflection* true)
@@ -25,24 +25,40 @@
     (.setVisible frame true)
     (.validate frame)))
 
+(defn resize-image
+  "Return img resized to width w and height h.  Favours image quality."
+  [img w h]
+  (let [resized (BufferedImage. w h BufferedImage/TYPE_INT_RGB)
+        g2 (.createGraphics resized)]
+    (.setRenderingHint g2
+                       RenderingHints/KEY_INTERPOLATION
+                       RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+    (.drawImage g2 img 0 0 w h nil)
+    (.dispose g2)
+    resized))
+
 (defn make-image
   "f is a function of x, y that returns [r g b].  All of x, y, r, g, b are
   expected to be in the interval [0, 1].  Width and height specify the size in
   pixels of the output image."
-  [width height f]
-  (let [img (BufferedImage. width height BufferedImage/TYPE_INT_RGB)]
-    (doseq [x (range width)
-            y (range height)]
-      (let [scaledx (/ (float x) width)
-            scaledy (/ (float y) height)
+  [width height aafactor f]
+  (let [w (* aafactor width)
+        h (* aafactor height)
+        img (BufferedImage. w h BufferedImage/TYPE_INT_RGB)]
+    (doseq [x (range w)
+            y (range h)]
+      (let [scaledx (/ (float x) w)
+            scaledy (/ (float y) h)
             [r g b] (f scaledx scaledy)
             col (Color. (float r) (float g) (float b))]
         (.setRGB img x y (.getRGB col))))
-    img))
+    (if (= 1 aafactor)
+      img
+      (resize-image img width height))))
 
 (comment
 
-  (defn show [f] (display-image frame (make-image 400 400 f)))
+  (defn show [f] (display-image frame (make-image 400 400 2 f)))
 
   ;; Simple gradient
   (defn f1 [x y] [x y 0])
